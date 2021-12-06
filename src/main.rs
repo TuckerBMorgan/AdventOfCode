@@ -1,11 +1,14 @@
-use core::num;
+use std::collections::btree_map::Range;
+use std::collections::{HashSet, HashMap};
 use std::fs::File;
-use std::io::{self, BufRead};
+use std::hash::Hash;
+use std::io::{self, BufRead, Lines, BufReader};
 use std::path::Path;
 
 use std::cmp::PartialEq;
 use std::ops::BitXor;
 use std::ops::Shl;
+
 // From https://citizen-stig.github.io/2020/04/04/converting-bits-to-integers-in-rust-using-generics.html
 fn convert<T: PartialEq + From<bool> + BitXor<Output = T> + Shl<Output = T> + Clone>(
     bits: &[T],
@@ -27,21 +30,14 @@ where P: AsRef<Path>, {
 
 fn day_1_part_1() {
     println!("Day 1 Part 1");
-    // File hosts must exist in current path before this produces output
-    if let Ok(lines) = read_lines("./day_1_input.txt") {
-        let mut first = false;
-        let mut previous = 0;
+    if let Ok(mut lines) = read_lines("./day_1_input.txt") {
+        //Grab the first line and set up our control variable the loop
+        let mut  previous = lines.next().unwrap().unwrap().parse::<i32>().unwrap();
         let mut total_increase = 0;
-    
-        // Consumes the iterator, returns an (Optional) String
         for line in lines {
             if let Ok(ip) = line {
                 let value_as_int = ip.parse::<i32>().unwrap();
-                if first == false {
-                    first = true;
-                    previous = value_as_int;
-                }
-                else if value_as_int > previous{
+                if value_as_int > previous{
                     total_increase += 1;
                 }
                 previous = value_as_int;
@@ -49,37 +45,31 @@ fn day_1_part_1() {
         }
         println!("{}", total_increase)
     }
-
 }
 
 fn day_1_part_2() {
     println!("Day 1 Part 2");
     // File hosts must exist in current path before this produces output
-    if let Ok(lines) = read_lines("./day_1_input.txt") {
+    if let Ok(mut lines) = read_lines("./day_1_input.txt") {
         // Consumes the iterator, returns an (Optional) String
-
         let mut total_increase = 0;
+        let a = lines.next().unwrap().unwrap().parse::<i32>().unwrap();
+        let mut b = lines.next().unwrap().unwrap().parse::<i32>().unwrap();
+        let mut c = lines.next().unwrap().unwrap().parse::<i32>().unwrap();
+        
+        let mut previous = a + b + c;
 
-        let mut all_numbers = vec![];
         for line in lines {
-            if let Ok(ip) = line {
-                let value_as_int = ip.parse::<i32>().unwrap();
-                all_numbers.push(value_as_int);
-            }
-        }
-
-        let mapped_values : Vec<i32> = all_numbers.windows(3).into_iter().map(|a|{
-            return a[0] + a[1] + a[2];
-        }).collect();
-        let mut previous = mapped_values[0];
-        for value in mapped_values {
+            let new_number = line.unwrap().parse::<i32>().unwrap();
+            let value = b + c + new_number;
             if value > previous {
                 total_increase += 1;
             }
+            b = c;
+            c = new_number;
             previous = value;
         }
-
-        println!("{}", total_increase)
+        println!("{}", total_increase);
     }
 
 }
@@ -267,10 +257,227 @@ fn day_3() {
     }
 }
 
+
+fn read_board(file: &mut Lines<BufReader<File>>) -> Vec<(u32, bool)> {
+    let mut values = vec![];
+    for i in 0..5 {
+        let line: Vec<(u32, bool)> = file.next().unwrap().unwrap().split_ascii_whitespace().map(|x|x.parse().unwrap()).map(|x|return (x, false)).collect();
+        values.extend(line);
+    }
+    return values;
+}
+
+
+fn has_board_been_completed(board: &Vec<(u32, bool)>) -> Option<u32> {
+    for x in 0..5 {
+        let mut count = 0;
+        for y in 0..5 {
+            let index = y * 5 + x;
+            if board[index].1 {
+                count += 1;
+            }
+        }
+        if count == 5 {
+            return Some(board.iter().fold(0, |sum, x|{ if x.1 == false{
+                return sum + x.0;
+            }else {sum}}));
+        }
+    }
+
+    for x in 0..5 {
+        let mut count = 0;
+        for y in 0..5 {
+            let index = x * 5 + y;
+            if board[index].1 {
+                count += 1;
+            }
+        }
+        if count == 5 {
+            return Some(board.iter().fold(0, |sum, x|{ if x.1 == false{
+                return sum + x.0;
+            }else {sum}}));
+        }
+    }
+
+    return None;
+}
+
+fn day_4() {
+    println!("Done with day 4");
+    if let Ok(mut lines) = read_lines("./day_4_input.txt") {
+        let mut winning_boards = HashMap::new();
+        let mut winning_order = vec![];
+        let marks: Vec<u32> = lines.next().unwrap().unwrap().split(',').map(|x|x.parse().unwrap()).collect();
+
+        let mut boards = vec![];
+        while lines.next().is_some() {
+            let value = read_board(&mut lines);
+            boards.push(value);
+        }
+        
+
+        for mark in marks {
+            for (index, board) in boards.iter_mut().enumerate() {
+                for cell in board.iter_mut() {
+                    if cell.0 == mark {
+                        cell.1 = true;
+                    }
+                }
+                let result = has_board_been_completed(board);
+                match result {
+                    Some(value) => {
+                        if winning_boards.contains_key(&index) == false {
+                            winning_boards.insert(index, value * mark);
+                            winning_order.push(index);
+                        }
+                    },
+                    _ => {
+    
+                    }
+                }            
+            }
+        }
+
+        println!("{:?}", winning_boards[&winning_order[winning_order.len() - 1]]);
+    }
+    println!("Done with day 4");
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+struct Point {
+    x: i32,
+    y: i32
+}
+
+impl Point  {
+    pub fn point_between(&self, other: &Point) -> Vec<Point> {
+        let x_dir;
+        if self.x == other.x {
+            x_dir = 0;
+        }
+        else {
+            if self.x > other.x {
+                x_dir = -1;
+            }
+            else {
+                x_dir = 1;
+            }
+        }
+
+        let y_dir;
+        if self.y == other.y {
+            y_dir = 0;
+        }
+        else {
+            if self.y > other.y {
+                y_dir = -1;
+            }
+            else {
+                y_dir = 1;
+            }
+        }
+        let mut color_points = vec![];
+        let mut start_point = Point{x: self.x, y:self.y};
+        color_points.push(start_point);        
+        while start_point != *other {
+            start_point.x += x_dir;
+            start_point.y += y_dir;
+            color_points.push(start_point);
+        }
+        return color_points;
+    }
+}
+
+fn day_5() {
+    if let Ok(mut lines) = read_lines("./day_5_input.txt") {
+        let mut board = HashMap::new();
+        let mut pairs = vec![];
+        for line in lines {
+            let mut one_lines = vec![];
+            let unwrapped_line = line.unwrap();
+            let a_line = unwrapped_line.split("->");
+
+            for x in a_line {
+                let b = x.split(',');
+                let mut poses: Vec<i32> = vec![];
+                for sss in b {
+                    poses.push(sss.trim().parse().unwrap());
+                }
+                one_lines.push(poses);
+            }
+            pairs.push(one_lines);
+        }
+
+        let valid_pairs: Vec<_> = pairs.iter().filter(|x|{
+            if x[0][0] == x[1][0] || x[0][1] == x[1][1] {
+                return true;
+            }
+            if x[0][0] == x[0][1] && x[1][0] == x[1][1]  {
+                return true;
+            }
+            if x[0][0] == x[1][1] && x[0][1] == x[1][0] {
+                return true;
+            }
+            return false;
+        }).collect();
+
+        valid_pairs.iter().for_each(|foo|{
+            let x1 = foo[0][0];
+            let y1 = foo[0][1];
+            let point_1 = Point{x: x1, y: y1};
+            let x2 = foo[1][0];
+            let y2 = foo[1][1];
+            let point_2 = Point{x: x2, y: y2};
+            for point in point_1.point_between(&point_2) {
+                let key = (point.x, point.y);
+                if board.contains_key(&key) == false {
+                    board.insert(key, 0);
+                }
+
+                *board.get_mut(&key).unwrap() += 1;
+            }
+            /*
+            if x1 == x2 {
+                if y2 < y1 {
+                    let a = y2;
+                    y2 = y1;
+                    y1 = a;
+                }
+                for y in y1..=y2 {
+                    board[x1 as usize][y as usize] += 1;
+                }
+            }
+            else {
+                if x2 < x1 {
+                    let a = x2;
+                    x2 = x1;
+                    x1 = a;
+                }
+                for x in x1..=x2 {
+                    board[x as usize][y1 as usize] += 1;
+                }
+            }
+            */
+        });
+        let mut count = 0;
+        for key in board.keys() {
+            if board[key] > 1 {
+                count += 1;
+            }
+        }
+        println!("{:?}", count);
+    }
+}
+
 fn main() {
+
+    day_5();
+    /*
     day_1_part_1();
     day_1_part_2();
     day_2_part_1();
     day_2_part_2();
     day_3();
+    day_4();
+    */
 }
