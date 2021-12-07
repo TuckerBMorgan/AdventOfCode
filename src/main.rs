@@ -8,6 +8,7 @@ use std::path::Path;
 use std::cmp::PartialEq;
 use std::ops::BitXor;
 use std::ops::Shl;
+use rayon::prelude::*;
 
 // From https://citizen-stig.github.io/2020/04/04/converting-bits-to-integers-in-rust-using-generics.html
 fn convert<T: PartialEq + From<bool> + BitXor<Output = T> + Shl<Output = T> + Clone>(
@@ -343,7 +344,7 @@ fn day_4() {
     println!("Done with day 4");
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 struct Point {
     x: i32,
     y: i32
@@ -352,6 +353,7 @@ struct Point {
 impl Point  {
     pub fn point_between(&self, other: &Point) -> Vec<Point> {
         let x_dir;
+
         if self.x == other.x {
             x_dir = 0;
         }
@@ -378,11 +380,14 @@ impl Point  {
         }
         let mut color_points = vec![];
         let mut start_point = Point{x: self.x, y:self.y};
-        color_points.push(start_point);        
+        color_points.push(start_point);
         while start_point != *other {
             start_point.x += x_dir;
             start_point.y += y_dir;
             color_points.push(start_point);
+        }
+        if self.x == 6 && self.y == 4 {
+            println!("{:?}", color_points);
         }
         return color_points;
     }
@@ -412,6 +417,11 @@ fn day_5() {
             if x[0][0] == x[1][0] || x[0][1] == x[1][1] {
                 return true;
             }
+
+            let slope = (x[1][1] - x[0][1]) / (x[1][0] - x[0][0]);
+            if slope == 1 || slope == -1 {
+                return true;
+            }
             if x[0][0] == x[0][1] && x[1][0] == x[1][1]  {
                 return true;
             }
@@ -436,28 +446,6 @@ fn day_5() {
 
                 *board.get_mut(&key).unwrap() += 1;
             }
-            /*
-            if x1 == x2 {
-                if y2 < y1 {
-                    let a = y2;
-                    y2 = y1;
-                    y1 = a;
-                }
-                for y in y1..=y2 {
-                    board[x1 as usize][y as usize] += 1;
-                }
-            }
-            else {
-                if x2 < x1 {
-                    let a = x2;
-                    x2 = x1;
-                    x1 = a;
-                }
-                for x in x1..=x2 {
-                    board[x as usize][y1 as usize] += 1;
-                }
-            }
-            */
         });
         let mut count = 0;
         for key in board.keys() {
@@ -466,12 +454,60 @@ fn day_5() {
             }
         }
         println!("{:?}", count);
+
+        for x in 0..10 {
+            for y in 0..10 {
+                if board.contains_key(&(y, x)) {
+                    print!("{:?} ", board[&(y, x)]);
+                }
+                else {
+                    print!(". ");
+                }
+            }
+            println!("");
+        }
     }
 }
 
-fn main() {
+fn day_6() {
+    if let Ok(mut lines) = read_lines("./day_6_input.txt") {
+        let numbers_line_as_string = lines.next().unwrap().unwrap();
+        let numbers : Vec<u8> = numbers_line_as_string.split(',').map(|x|x.parse().unwrap()).collect();
+        let mut fish_counter_a: [u64; 9] = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let fish_counter_b: [u64; 9] = [0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-    day_5();
+        for num in numbers {
+            fish_counter_a[num as usize] += 1;
+        }
+        let mut fish_counters = [fish_counter_a, fish_counter_b];
+        for i in 0..256 {
+            println!("Gen: {:?}", i);
+            let read_index = i % 2;
+            let write_index = 1 - (i % 2);
+            fish_counters[write_index][8] = fish_counters[read_index][0];
+            fish_counters[write_index][7] = fish_counters[read_index][8];
+            fish_counters[write_index][6] = fish_counters[read_index][7] + fish_counters[read_index][0];
+            fish_counters[write_index][5] = fish_counters[read_index][6];            
+            fish_counters[write_index][4] = fish_counters[read_index][5];
+            fish_counters[write_index][3] = fish_counters[read_index][4];            
+            fish_counters[write_index][2] = fish_counters[read_index][3];            
+            fish_counters[write_index][1] = fish_counters[read_index][2];
+            fish_counters[write_index][0] = fish_counters[read_index][1];
+        }
+        let mut a_count = 0;
+        let mut b_count = 0;
+        for i in 0..9 {
+            a_count += fish_counters[0][i];
+            b_count += fish_counters[1][i];
+        }
+        println!("{:?}", a_count);
+        println!("{:?}", b_count);
+    }   
+}
+
+fn main() {
+    day_6();
+//    day_5();
     /*
     day_1_part_1();
     day_1_part_2();
